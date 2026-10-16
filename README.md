@@ -64,6 +64,36 @@ is enabled by default. The automatic open-answer label is normalized exact
 match, so task-specific human or external labels should be supplied with
 `label_greedy_answers.py --external-labels` when that is the evaluation target.
 
+## Full main experiment (24 closed / 21 open settings)
+
+The latest main summary covers seven models on VQA-RAD, SLAKE, and
+VQA-Med-2019 for both question types, plus LLaVA-NeXT-7B on the three closed
+tasks. `run_main_experiment.py` runs greedy answers, labels, HAC/VASE, PTrue
+for the seven main models, CAS features, protocol audits, comparison summaries,
+and paper metric tables in that order. It uses seed 42, HAC N=10 / temperature 0.7 / cluster threshold
+0.85, five stratified folds, and 1,000 bootstrap draws for the main comparison.
+Run it with an environment that has the eight models and three datasets:
+
+```bash
+python scripts/run_main_experiment.py --dry-run
+python scripts/run_main_experiment.py --cuda-visible-devices 0
+```
+
+This runner uses one GPU selection sequentially. `--evaluate-only` computes
+summaries from existing JSONL inputs and checks that all 45
+model/dataset/task settings have greedy, label, HAC, and CAS files, plus the
+42 PTrue files used in the original full metric table. It accepts
+existing error rows in CAS and evaluates only matched successful samples,
+following the original comparison script. The result files are
+`04_results/closed/json/summary.json`, `04_results/open/json/summary.json`,
+and `04_results/paper_metrics/benchmark_main_metrics.csv`.
+
+The closed CAS extractor writes 17 features, while the **primary main
+comparison uses nine aggregate features** (`CAS-LogReg-cas_all`). The
+17-feature variant is a separate feature ablation. Open primary
+`CAS-LogReg-cas_only` is pure CAS; `CAS+Likelihood-LogReg-full` is a separate
+augmented result.
+
 ## Repository layout
 
 - `scripts/compute_cas_closed_from_greedy.py`: closed CAS features.
@@ -72,6 +102,7 @@ match, so task-specific human or external labels should be supplied with
 - `scripts/benchmark_common.py`: shared data paths and row format.
 - `scripts/generate_greedy_answers.py`, `scripts/label_greedy_answers.py`: shared targets and labels.
 - `scripts/compute_hac_vase_from_greedy.py`, `scripts/evaluate_compare_hac_cas.py`: comparison.
+- `scripts/run_main_experiment.py`: exact latest main-experiment scope and command chain.
 - `scripts/build_paper_metric_tables.py`, `scripts/run_cas_feature_ablation.py` and plotting scripts: analysis.
 - `src/medvlm`: model and dataset runtime.
 
@@ -79,7 +110,15 @@ match, so task-specific human or external labels should be supplied with
 
 This release is a code package, not a claim that every historical experiment
 finished successfully. The original full-scope output audit found six closed
-CAS model/dataset files with missing or error rows. No historical output files
+CAS model/dataset files with ten distinct failed model/sample targets whose
+greedy answers were not yes/no. No historical output files
 are included here. `scripts/assert_full_scope_complete.py` is a strict audit
 for the five-model full-scope protocol; run it only after producing that full
 scope. Its expected counts do not apply to the ten-sample example above.
+
+For release verification, the evaluation scripts in this repository were run
+against the original cached JSONL files. All 24 closed and 21 open settings
+matched the original sample counts, accuracy, AUROC values, and primary CAS
+delta. The paper metrics builder reproduced 429 rows with matching model,
+dataset, task, method, sample counts, AUROC, accuracy, and AURC. This verifies
+evaluation from caches; it does not verify a fresh model inference run.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate HAC baselines and closed-ended CAS on strict sample intersections."""
+"""Evaluate HAC and CAS on strict greedy-label sample intersections."""
 
 from __future__ import annotations
 
@@ -24,6 +24,13 @@ CLOSED_CAS_ALL = (
     'cas_pred_mean', 'cas_pred_max', 'cas_pred_min',
     'cas_opp_mean', 'cas_opp_max', 'cas_opp_min',
     'cas_cf_support_mean', 'cas_cf_support_max', 'cas_same_pred_frac',
+)
+OPEN_CAS_ONLY = ('cas_text', 'cas_black', 'cas_noise', 'cas_blur', 'cas_mean', 'cas_max')
+OPEN_CAS_FULL = (
+    'real_nll', 'real_confidence', 'cf_logprob_max', 'cf_logprob_mean',
+    'cf_confidence_max', 'cf_confidence_mean',
+    'cas_text', 'cas_black', 'cas_noise', 'cas_blur', 'cas_mean', 'cas_max',
+    'cas_positive_mean', 'cas_positive_max', 'token_count_log',
 )
 
 def auc(labels: np.ndarray, scores: np.ndarray) -> float | None:
@@ -243,6 +250,25 @@ def evaluate_setting(hac_file: Path, cas_file: Path, qtype: str, args: argparse.
             args.bootstraps,
             args.seed,
         )
+    elif qtype == 'open':
+        cas_name = 'CAS-LogReg-cas_only'
+        x = row_features(cas_rows, OPEN_CAS_ONLY)
+        result['scores'][cas_name] = logreg_cv(labels, x, args.outer_splits, args.seed, args.splitter)
+        result['cas_primary'] = {'name': cas_name, 'features': list(OPEN_CAS_ONLY), **result['scores'][cas_name]}
+        cas_auc = result['cas_primary'].get('auroc')
+        hac_auc = result['hac_best'].get('auroc')
+        if cas_auc is not None and hac_auc is not None:
+            result['delta_primary_vs_hac_best'] = float(cas_auc - hac_auc)
+        result['paired_bootstrap'] = paired_bootstrap(
+            labels, result['cas_primary']['scores_oof'],
+            result['hac_best']['scores_oof'], args.bootstraps, args.seed,
+        )
+        if args.include_cas_full:
+            full_name = 'CAS+Likelihood-LogReg-full'
+            result['scores'][full_name] = logreg_cv(
+                labels, row_features(cas_rows, OPEN_CAS_FULL),
+                args.outer_splits, args.seed, args.splitter,
+            )
     return result
 
 
