@@ -1,97 +1,41 @@
-# Benchmark Protocol
+# Closed-question benchmark protocol
 
-## Goal
+## Scope
 
-Compare HAC and CAS/V6 uncertainty scores for medical VQA under one shared
-correctness-label protocol.
+Seven model keys (`qwen3vl_2b`, `qwen3vl_8b`,
+`internvl3_2b_local`, `internvl3_8b_local`, `lingshu_7b`,
+`medgemma_4b`, `medvlm_r1`) are evaluated on closed questions from
+VQA-RAD, SLAKE, and VQA-Med-2019: 21 model/dataset settings.
 
-## Correctness Labels
+## Shared answer and label
 
-Primary correctness labels must be derived from a single deterministic greedy
-answer per sample. This shared greedy answer is generated once by
-`scripts/generate_greedy_answers.py` and then reused by HAC, closed CAS, open
-CAS, and label normalization.
+One deterministic greedy answer is generated for each sample. Its normalized
+yes/no value is compared with the normalized ground truth to produce the
+correctness label. HAC and CAS use that same target and label. A
+high-temperature sample or sampling majority is never used as the label.
+If a greedy answer cannot be normalized to yes/no, closed CAS records an
+error and the HAC/CAS comparison excludes that sample from the strict matched
+intersection.
 
-It is not the first high-temperature sample and is never replaced by a
-sampling-majority answer.
+## HAC/VASE
 
-Disallowed as primary labels:
+Per sample, ten original-image and ten distorted-image high-temperature
+answers are drawn. HAC confidence is the fraction of ten original answers
+matching the shared greedy yes/no target. Invalid sampled answers remain in
+the denominator. VASE is calculated from original and distorted samples.
+HAC-Platt and HAC-Gate are fit in the same cross-validation protocol.
 
-- HAC n=20 sampling majority.
-- HAC/VASE high-temperature sample majority.
-- Any label source that judges a different answer from the greedy answer.
-- Any label source that differs between HAC and CAS for the same setting.
+## CAS
 
-## HAC
+CAS scores the shared greedy yes/no answer under the original image and four
+counterfactual inputs: text only, black image, noise image, and blurred image.
+The extractor writes 17 features. The fixed primary detector uses nine
+aggregate features named `CAS-LogReg-cas_all` in the evaluation code.
 
-Primary HAC uses the shared greedy target plus one VASE/HEDGE sampling bundle
-per sample:
+## Evaluation
 
-- `target_answer`: the shared deterministic original-image answer; used for the
-  benchmark prediction and correctness label.
-- `original_high_temp`: `N=10` original-image high-temperature answers; used to
-  compute HAC confidence.
-- `distorted_high_temp`: `N=10` distorted-image high-temperature answers; used
-  with the original-image samples to compute VASE.
-- `VASE`: hallucination/risk score from clean and distorted semantic
-  distributions.
-- `HAC-Platt` and `HAC-Gate`: fitted from HAC confidence and VASE.
-
-HAC confidence is:
-
-```text
-confidence = count(original_high_temp answer matches greedy_answer) / 10
-```
-
-For closed-ended rows, matching uses normalized yes/no. Invalid or unparsable
-high-temperature answers count as non-matches and stay in the denominator. For
-open-ended rows, matching uses the same semantic clustering policy used by the
-VASE/HEDGE run, with the benchmark default embedding threshold `0.85`.
-
-HAC may not use high-temperature generations as correctness labels.
-
-## CAS/V6
-
-Closed CAS/V6:
-
-- Uses the shared greedy yes/no answer.
-- Compares answer support under real image and four fixed counterfactual inputs:
-  `textonly`, `black`, `noise`, and `blur`.
-- Primary signal is `CAS-LogReg-cas_all`.
-- Must align `is_correct` to the shared greedy correctness label.
-
-Open CAS/V6:
-
-- Uses the shared greedy answer text.
-- Teacher-forces the same answer tokens under real image and four fixed
-  counterfactual inputs: `text`, `black`, `noise`, and `blur`.
-- Primary signal is pure `CAS-LogReg-cas_only`.
-- `CAS+Likelihood-full` is ablation/exploratory only.
-- Must align `is_correct` to the shared greedy correctness label.
-
-## Primary Metrics
-
-Primary comparison:
-
-```text
-delta = fixed_CAS_AUROC - HAC_best_AUROC
-```
-
-where:
-
-- `HAC_best_AUROC` is the better AUROC of HAC-Platt and HAC-Gate.
-- `fixed_CAS_AUROC` uses the predefined fixed CAS configuration.
-
-## Exploratory Metrics
-
-CV-selected CAS is exploratory unless explicitly promoted later.
-
-## Reproducibility Requirement
-
-Every final result must have:
-
-- input paths,
-- command,
-- output path,
-- label source,
-- audit notes.
+The comparison uses the intersection of valid HAC and CAS rows with matching
+correctness labels. The primary metric is error-detection AUROC and its
+per-setting difference from the better of HAC-Platt and HAC-Gate. Five
+stratified folds use seed 42. The main comparison computes 1,000 paired
+bootstrap draws for each setting.

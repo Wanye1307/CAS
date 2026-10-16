@@ -34,7 +34,6 @@ MODEL_LABELS = {
     'lingshu_7b': 'Lingshu-7B',
     'medgemma_4b': 'MedGemma-4B',
     'medvlm_r1': 'MedVLM-R1',
-    'llava_next_7b_local': 'LLaVA-NeXT-7B',
 }
 DATASET_LABELS = {
     'vqa_rad': 'VQA-RAD',
@@ -529,11 +528,15 @@ def cas_subset_matrix(rows: Sequence[Mapping[str, Any]], subset: Sequence[str]) 
 def setting_files(args: argparse.Namespace) -> list[tuple[str, str, str, Path, Path]]:
     out = []
     for qtype, cas_dir in [('closed', Path(args.cas_closed_dir)), ('open', Path(args.cas_open_dir))]:
+        if args.qtypes and qtype not in args.qtypes:
+            continue
         for hac_file in sorted(Path(args.hac_dir).glob(f'*__{qtype}.jsonl')):
             parts = hac_file.stem.split('__')
             if len(parts) != 3:
                 continue
             model, dataset, task = parts
+            if args.models and model not in args.models:
+                continue
             if model not in MODEL_LABELS or dataset not in DATASET_LABELS:
                 continue
             cas_file = output_path(cas_dir, model, dataset, task)
@@ -943,6 +946,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--hac-dir', default=str(BENCH_ROOT / '03_runs/hac/raw'))
     parser.add_argument('--cas-closed-dir', default=str(BENCH_ROOT / '03_runs/cas_closed/features'))
     parser.add_argument('--cas-open-dir', default=str(BENCH_ROOT / '03_runs/cas_open/features'))
+    parser.add_argument('--models', nargs='+', help='Restrict to named model keys')
+    parser.add_argument('--qtypes', nargs='+', choices=['closed', 'open'], help='Restrict question types')
     parser.add_argument('--ptrue-dir', default=str(BENCH_ROOT / '03_runs/ptrue/raw'))
     parser.add_argument('--output-dir', default=str(BENCH_ROOT / '04_results/paper_metrics'))
     parser.add_argument('--table-dir', default=str(BENCH_ROOT / '08_overleaf_draft_local/tables'))

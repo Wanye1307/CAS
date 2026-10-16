@@ -1,56 +1,17 @@
-# Label Policy
+# Shared greedy-label policy
 
-## Policy
+Every closed-question sample has one deterministic greedy target. Its
+normalized yes/no prediction is compared with the normalized yes/no ground
+truth. The label is shared by HAC, PTrue, and CAS. High-temperature answers
+are used for uncertainty estimation only.
 
-Each benchmark row uses exactly one correctness label per sample. That label
-must judge the deterministic greedy answer.
+`scripts/label_greedy_answers.py` writes one JSONL row per successful greedy
+sample under `02_inputs/labels/`. The row records model, dataset, question
+type, sample/question/image identifiers, ground truth, target prediction,
+`is_correct`, judge method, and source. An external label file can be passed
+with `--external-labels`, provided it judges the same greedy target.
 
-For HAC rows, the deterministic greedy answer is the `greedy_answer` generated
-inside the VASE/HEDGE run before high-temperature sampling. The
-`original_high_temp` and `distorted_high_temp` generations are never label
-sources.
-
-
-## Current Benchmark Label Rule
-
-Closed labels use normalized yes/no exact matching against the shared greedy
-prediction. Open labels use normalized exact matching against the shared greedy
-answer text: answer-prefix stripping, lowercase, and terminal-period
-normalization are allowed; substring containment is not used.
-
-## Required Normalized Label Schema
-
-Each normalized label file under `02_inputs/labels/` should contain JSONL rows
-with:
-
-- `model`
-- `dataset`
-- `qtype`
-- `question_id`
-- `image_id`
-- `question`
-- `ground_truth`
-- `prediction`
-- `is_correct`
-- `judge_model`
-- `judge_method`
-- `source_path`
-- `source_index`
-
-## Label Audits
-
-For each model/dataset/qtype, record:
-
-- number of rows,
-- number correct,
-- number incorrect,
-- accuracy,
-- duplicate question IDs,
-- missing labels,
-- label source,
-- whether labels judge the same answer used by HAC and CAS.
-
-## Pending Source Mapping
-
-The final source mapping is not frozen yet. Candidate sources must be reviewed
-before being copied into `02_inputs/labels/`.
+`scripts/audit_protocol_inputs.py` checks that greedy, label, HAC, and CAS
+rows refer to the same target and correctness label. A CAS row with an
+unparseable yes/no target has status `error` and is excluded by the strict
+HAC/CAS intersection.

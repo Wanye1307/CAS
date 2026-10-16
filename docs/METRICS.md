@@ -1,39 +1,15 @@
-# Metrics
+# Closed-question metrics
 
-## Primary Metrics
+- `accuracy`: correctness of the shared deterministic greedy answer.
+- `AUROC`: error detection, where label 1 means an incorrect answer and
+  larger scores mean greater risk.
+- `HAC-best`: the higher AUROC of HAC-Platt and HAC-Gate within each setting.
+- `CAS-primary`: `CAS-LogReg-cas_all`, fit from the predefined nine CAS
+  aggregate features under five stratified folds.
+- `delta`: CAS-primary AUROC minus HAC-best AUROC in the same setting.
+- `n_intersection`: samples with successful HAC and CAS rows and matching
+  correctness labels; failed CAS rows do not enter the metric.
 
-- AUROC for error detection.
-- Accuracy of the greedy answers.
-- Delta between fixed CAS and HAC-best.
-
-## HAC Metrics
-
-HAC candidates:
-
-- HAC-Platt
-- HAC-Gate
-
-HAC-best:
-
-```text
-max(AUROC(HAC-Platt), AUROC(HAC-Gate))
-```
-
-## CAS Metrics
-
-Fixed CAS candidates are protocol-defined before looking at results.
-
-Current candidate definitions:
-
-- closed: `CAS-LogReg-cas_all`
-- open: `CAS-LogReg-cas_full`
-
-These are not final until the benchmark scope is frozen.
-
-## Exploratory Metrics
-
-- CV-selected CAS best.
-- Best raw CAS signal.
-- Other calibration or selective metrics if needed.
-
-Exploratory metrics must be marked as exploratory in final tables.
+The main result contains 21 model/dataset settings. The paper metrics builder
+also reports selective prediction metrics and other baselines on the matched
+rows.
